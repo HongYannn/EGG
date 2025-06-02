@@ -1,0 +1,92 @@
+<html>
+
+<head>
+  <title>Express</title>
+  <link rel="stylesheet" href="/stylesheets/style.css">
+</head>
+
+<body>
+  <h1>Express</h1>
+  <p>Welcome to Express</p>
+
+  <!-- 表單區域 -->
+  <form id="movieForm">
+    <label for="provider">電影台詞提供者:</label>
+    <input type="text" id="provider" name="provider" required><br>
+
+    <label for="movie_name">電影名稱:</label>
+    <input type="text" id="movie_name" name="movie_name" required><br>
+
+    <label for="quote">電影台詞:</label>
+    <input type="text" id="quote" name="quote" required><br>
+
+    <button type="button" id="submitBtn">提交</button>
+  </form>
+
+  <!-- 顯示伺服器回傳訊息 -->
+  <p id="serverResponse"></p>
+
+  <!-- 顯示 movie_quotes 資料的表格 -->
+  <table id="quotesTable" border="1">
+    <thead>
+      <tr>
+        <th>提供者</th>
+        <th>電影名稱</th>
+        <th>台詞</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- 資料將由 JavaScript 動態插入 -->
+    </tbody>
+  </table>
+
+  <script>
+    document.getElementById('submitBtn').addEventListener('click', async () => {
+      const provider = document.getElementById('provider').value;
+      const movieName = document.getElementById('movie_name').value;
+      const quote = document.getElementById('quote').value;
+
+      try {
+        const response = await fetch('/api/insert', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ provider, movie_name: movieName, quote }),
+        });
+
+        if (response.ok) {
+          const text = await response.text();
+          document.getElementById('serverResponse').textContent = text;
+        } else {
+          document.getElementById('serverResponse').textContent = '提交失敗';
+        }
+      } catch (error) {
+        document.getElementById('serverResponse').textContent = '發生錯誤';
+      }
+    });
+
+    async function fetchQuotes() {
+      try {
+        const response = await fetch('/api/quotes');
+        if (response.ok) {
+          const quotes = await response.json();
+          const tbody = document.getElementById('quotesTable').querySelector('tbody');
+          tbody.innerHTML = '';
+          quotes.forEach(({ provider, movie_name, quote }) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `<td>${provider}</td><td>${movie_name}</td><td>${quote}</td>`;
+            tbody.appendChild(row);
+          });
+        }
+      } catch (error) {
+        console.error('無法取得資料', error);
+      }
+    }
+
+    // 初始化時載入資料
+    fetchQuotes();
+  </script>
+</body>
+
+</html>
