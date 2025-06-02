@@ -1,92 +1,123 @@
 <html>
-
 <head>
-  <title>Express</title>
+  <title>蛋價查詢系統</title>
   <link rel="stylesheet" href="/stylesheets/style.css">
+  <style>
+    .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px #ccc; padding: 32px; }
+    h1, h2 { text-align: center; color: #2d5c8a; }
+    form, .search-area { margin-bottom: 32px; }
+    label { display: inline-block; width: 100px; margin-bottom: 8px; color: #333; }
+    input[type="date"], input[type="number"], input[type="text"] { padding: 6px; border-radius: 4px; border: 1px solid #bbb; margin-bottom: 12px; width: 180px; }
+    input[readonly] { background: #f3f3f3; color: #888; }
+    button { background: #2d5c8a; color: #fff; border: none; border-radius: 4px; padding: 8px 18px; cursor: pointer; font-size: 15px; }
+    button:hover { background: #1a3c5a; }
+    table { width: 100%; border-collapse: collapse; margin-top: 18px; }
+    th, td { border: 1px solid #b7c9e2; padding: 8px 6px; text-align: center; }
+    th { background: #eaf2fb; color: #2d5c8a; }
+    tr:nth-child(even) { background: #f7fbff; }
+    .remind { color: #b85c00; font-size: 13px; margin-left: 6px; }
+    .search-area { display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
+    @media (max-width: 700px) { .container { padding: 10px; } label { width: 90px; } }
+  </style>
 </head>
-
-<body>
-  <h1>Express</h1>
-  <p>Welcome to Express</p>
-
-  <!-- 表單區域 -->
-  <form id="movieForm">
-    <label for="provider">電影台詞提供者:</label>
-    <input type="text" id="provider" name="provider" required><br>
-
-    <label for="movie_name">電影名稱:</label>
-    <input type="text" id="movie_name" name="movie_name" required><br>
-
-    <label for="quote">電影台詞:</label>
-    <input type="text" id="quote" name="quote" required><br>
-
-    <button type="button" id="submitBtn">提交</button>
-  </form>
-
-  <!-- 顯示伺服器回傳訊息 -->
-  <p id="serverResponse"></p>
-
-  <!-- 顯示 movie_quotes 資料的表格 -->
-  <table id="quotesTable" border="1">
-    <thead>
-      <tr>
-        <th>提供者</th>
-        <th>電影名稱</th>
-        <th>台詞</th>
-      </tr>
-    </thead>
-    <tbody>
-      <!-- 資料將由 JavaScript 動態插入 -->
-    </tbody>
-  </table>
-
+<body style="background:#f2f6fa;">
+  <div class="container">
+    <h1>蛋價查詢系統</h1>
+    <!-- 新增蛋價表單 -->
+    <form id="eggPriceForm">
+      <label for="date">日期：</label>
+      <input type="date" id="date" name="date" required>
+      <br>
+      <label for="price">商品價格：</label>
+      <input type="number" id="price" name="price" step="0.1" required>
+      <br>
+      <label>單位：</label>
+      <input type="text" value="元/台斤" readonly>
+      <span class="remind">（單位固定為元/台斤，無須輸入）</span>
+      <br>
+      <button type="button" id="submitEggBtn">新增</button>
+    </form>
+    <p id="eggServerResponse"></p>
+    <!-- 查詢區域 -->
+    <h2>蛋價查詢</h2>
+    <div class="search-area">
+      <label for="startDate">起始日期：</label>
+      <input type="date" id="startDate">
+      <label for="endDate">結束日期：</label>
+      <input type="date" id="endDate">
+      <button type="button" id="searchBtn">搜尋</button>
+      <button type="button" id="resetBtn">全部資料</button>
+    </div>
+    <table id="eggTable">
+      <thead>
+        <tr>
+          <th>日期</th>
+          <th>價格</th>
+          <th>單位</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- 資料將由 JavaScript 動態插入 -->
+      </tbody>
+    </table>
+  </div>
   <script>
-    document.getElementById('submitBtn').addEventListener('click', async () => {
-      const provider = document.getElementById('provider').value;
-      const movieName = document.getElementById('movie_name').value;
-      const quote = document.getElementById('quote').value;
-
-      try {
-        const response = await fetch('/api/insert', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ provider, movie_name: movieName, quote }),
-        });
-
-        if (response.ok) {
-          const text = await response.text();
-          document.getElementById('serverResponse').textContent = text;
-        } else {
-          document.getElementById('serverResponse').textContent = '提交失敗';
-        }
-      } catch (error) {
-        document.getElementById('serverResponse').textContent = '發生錯誤';
-      }
+    // 新增蛋價
+    document.getElementById('submitEggBtn').addEventListener('click', async () => {
+      const date = document.getElementById('date').value;
+      const price = document.getElementById('price').value;
+      if (!date || !price) return;
+      const res = await fetch('/api/insert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, price })
+      });
+      const msg = await res.text();
+      document.getElementById('eggServerResponse').innerText = msg;
+      loadEggPrices();
     });
-
-    async function fetchQuotes() {
-      try {
-        const response = await fetch('/api/quotes');
-        if (response.ok) {
-          const quotes = await response.json();
-          const tbody = document.getElementById('quotesTable').querySelector('tbody');
-          tbody.innerHTML = '';
-          quotes.forEach(({ provider, movie_name, quote }) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `<td>${provider}</td><td>${movie_name}</td><td>${quote}</td>`;
-            tbody.appendChild(row);
-          });
-        }
-      } catch (error) {
-        console.error('無法取得資料', error);
-      }
+    // 查詢全部
+    async function loadEggPrices() {
+      const res = await fetch('/api/quotes');
+      const data = await res.json();
+      renderEggTable(data);
     }
-
-    // 初始化時載入資料
-    fetchQuotes();
+    // 查詢區間
+    async function searchByDate() {
+      let start = document.getElementById('startDate').value;
+      let end = document.getElementById('endDate').value;
+      if (!start || !end) {
+        loadEggPrices();
+        return;
+      }
+      // 自動交換順序，確保 start <= end
+      if (start > end) {
+        [start, end] = [end, start];
+      }
+      const res = await fetch('/api/range', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ start, end })
+      });
+      const data = await res.json();
+      renderEggTable(data);
+    }
+    function renderEggTable(data) {
+      const tbody = document.querySelector('#eggTable tbody');
+      tbody.innerHTML = '';
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="3">查無資料</td></tr>';
+        return;
+      }
+      data.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${row.date}</td><td>${row.price}</td><td>${row.unit}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+    document.getElementById('searchBtn').addEventListener('click', searchByDate);
+    document.getElementById('resetBtn').addEventListener('click', loadEggPrices);
+    window.onload = loadEggPrices;
   </script>
 </body>
-
 </html>

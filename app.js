@@ -25,9 +25,9 @@ const db = new sqlite3.Database(dbPath, (err) => {
     }
 });
 
-// 查詢所有電影台詞資料���路由
+// 查詢所有蛋價資料（依日期降冪）
 app.get('/api/quotes', (req, res) => {
-    const query = 'SELECT * FROM movie_quotes';
+    const query = 'SELECT * FROM egg_prices ORDER BY date DESC';
     db.all(query, [], (err, rows) => {
         if (err) {
             console.error('查詢失敗:', err.message);
@@ -38,20 +38,37 @@ app.get('/api/quotes', (req, res) => {
     });
 });
 
-// 新增電影台詞資料的路由
+// 新增一筆蛋價資料
 app.post('/api/insert', (req, res) => {
-    const { provider, movie_name, quote } = req.body;
-    if (!provider || !movie_name || !quote) {
+    const { date, price } = req.body;
+    if (!date || !price) {
         return res.status(400).send('缺少必要的欄位');
     }
-
-    const insertQuery = 'INSERT INTO movie_quotes (provider, movie_name, quote) VALUES (?, ?, ?)';
-    db.run(insertQuery, [provider, movie_name, quote], function (err) {
+    const unit = '元/台斤';
+    const insertQuery = 'INSERT INTO egg_prices (date, price, unit) VALUES (?, ?, ?)';
+    db.run(insertQuery, [date, price, unit], function (err) {
         if (err) {
-            console.error('新增資料失敗:', err.message);
-            res.status(500).send('新增資料失敗');
+            console.error('新增失敗:', err.message);
+            res.status(500).send('新增失敗');
         } else {
-            res.send('資料已成功新增');
+            res.send('新增成功');
+        }
+    });
+});
+
+// 查詢指定日期範圍的蛋價資料（依日期降冪）
+app.post('/api/range', (req, res) => {
+    const { start, end } = req.body;
+    if (!start || !end) {
+        return res.status(400).send('缺少必要的欄位');
+    }
+    const query = 'SELECT * FROM egg_prices WHERE date BETWEEN ? AND ? ORDER BY date DESC';
+    db.all(query, [start, end], (err, rows) => {
+        if (err) {
+            console.error('區間查詢失敗:', err.message);
+            res.status(500).json({ error: '查詢失敗' });
+        } else {
+            res.json(rows);
         }
     });
 });

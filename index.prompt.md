@@ -1,3 +1,6 @@
-1.在 index.html 中，產生 可以輸入 電影台詞 電影腳色 電影名稱 (provider, movie_name, quote) 的表單，不使用 action 
-2.在 index.html 中，將上面表單的資料，透過 fetch async await 來發送 POST 請求到 /api/insert ，並在成功後，用 p 顯示伺服器回傳的【純文字】訊息，不是 json
-3.在 index.html 中，透過 /api/quotes，在最下方用 table 顯示 movie_quotes 所有資料
+網站請包含以下:
+1.輸入(日期、商品價格、元/台斤無須輸入由電腦自動輸入),但網頁上需要提醒使用者是元/台斤
+2.查詢包括以下兩個 
+-直接按搜尋就是直接以表格或清單把整個資料表由日期新至舊列出，也就是我app.js的app.get('/api/quotes')
+-可以輸入搜尋的起始日期以及結束日期，把符合這個日期內的資料印出，並且也是依照日期由新至舊列印出。
+3.幫我做網頁美觀
