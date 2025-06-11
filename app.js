@@ -3,6 +3,7 @@ var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 const sqlite3 = require('sqlite3').verbose();
+const bodyParser = require('body-parser');
 
 var indexRouter = require('./routes/index');
 var usersRouter = require('./routes/users');
@@ -14,6 +15,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(bodyParser.json());
 
 // 打開 SQLite 資料庫
 const dbPath = path.join(__dirname, 'db', 'sqlite.db');
@@ -70,6 +72,36 @@ app.post('/api/range', (req, res) => {
         } else {
             res.json(rows);
         }
+    });
+});
+
+// 匯出 CSV 路由
+app.get('/export-csv', (req, res) => {
+    let { startDate, endDate } = req.query;
+    let query = 'SELECT * FROM egg_prices';
+    let params = [];
+    if (startDate && endDate) {
+        // 自動交換日期順序
+        if (startDate > endDate) {
+            [startDate, endDate] = [endDate, startDate];
+        }
+        query += ' WHERE date BETWEEN ? AND ?';
+        params = [startDate, endDate];
+    }
+    query += ' ORDER BY date DESC';
+    db.all(query, params, (err, rows) => {
+        if (err) {
+            console.error('匯出 CSV 查詢失敗:', err.message);
+            res.status(500).send('匯出失敗');
+            return;
+        }
+        let csv = '日期,價格,單位\n';
+        rows.forEach(row => {
+            csv += `${row.date},${row.price},${row.unit}\n`;
+        });
+        res.setHeader('Content-Type', 'text/csv; charset=UTF-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="egg_prices.csv"');
+        res.send(csv);
     });
 });
 

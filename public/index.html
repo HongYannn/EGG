@@ -47,6 +47,9 @@
       <input type="date" id="endDate">
       <button type="button" id="searchBtn">搜尋</button>
       <button type="button" id="resetBtn">全部資料</button>
+      <button type="button" id="exportCsvBtn">匯出 CSV</button>
+      <button type="button" id="clearDateBtn">清空日期</button>
+      <span class="remind">（可依日期範圍匯出）</span>
     </div>
     <table id="eggTable">
       <thead>
@@ -60,8 +63,22 @@
         <!-- 資料將由 JavaScript 動態插入 -->
       </tbody>
     </table>
+    <!-- 分頁控制區 -->
+    <div style="text-align:center;margin:16px 0;">
+      <button id="prevPageBtn">上一頁</button>
+      <span id="pageInfo" style="margin:0 12px;"></span>
+      <button id="nextPageBtn">下一頁</button>
+    </div>
+    <!-- 折線圖區 -->
+    <canvas id="eggChart" height="120" style="margin-top:24px;"></canvas>
   </div>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
+    let allEggData = [];
+    let currentPage = 1;
+    const pageSize = 10;
+    let chart = null;
+
     // 新增蛋價
     document.getElementById('submitEggBtn').addEventListener('click', async () => {
       const date = document.getElementById('date').value;
@@ -80,7 +97,9 @@
     async function loadEggPrices() {
       const res = await fetch('/api/quotes');
       const data = await res.json();
-      renderEggTable(data);
+      allEggData = data;
+      currentPage = 1;
+      renderEggTableWithPaging();
     }
     // 查詢區間
     async function searchByDate() {
@@ -90,7 +109,6 @@
         loadEggPrices();
         return;
       }
-      // 自動交換順序，確保 start <= end
       if (start > end) {
         [start, end] = [end, start];
       }
@@ -100,24 +118,110 @@
         body: JSON.stringify({ start, end })
       });
       const data = await res.json();
-      renderEggTable(data);
+      allEggData = data;
+      currentPage = 1;
+      renderEggTableWithPaging();
     }
-    function renderEggTable(data) {
+    function renderEggTableWithPaging() {
       const tbody = document.querySelector('#eggTable tbody');
       tbody.innerHTML = '';
-      if (!data.length) {
+      const total = allEggData.length;
+      const totalPages = Math.ceil(total / pageSize) || 1;
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+      const startIdx = (currentPage - 1) * pageSize;
+      const pageData = allEggData.slice(startIdx, startIdx + pageSize);
+      if (!pageData.length) {
         tbody.innerHTML = '<tr><td colspan="3">查無資料</td></tr>';
-        return;
+      } else {
+        pageData.forEach(row => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${row.date}</td><td>${row.price}</td><td>${row.unit}</td>`;
+          tbody.appendChild(tr);
+        });
       }
-      data.forEach(row => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${row.date}</td><td>${row.price}</td><td>${row.unit}</td>`;
-        tbody.appendChild(tr);
+      document.getElementById('pageInfo').innerText = `第 ${currentPage} / ${totalPages} 頁`;
+      document.getElementById('prevPageBtn').disabled = currentPage === 1;
+      document.getElementById('nextPageBtn').disabled = currentPage === totalPages;
+      renderChart(pageData);
+    }
+    document.getElementById('prevPageBtn').addEventListener('click', () => {
+      if (currentPage > 1) {
+        currentPage--;
+        renderEggTableWithPaging();
+      }
+    });
+    document.getElementById('nextPageBtn').addEventListener('click', () => {
+      const totalPages = Math.ceil(allEggData.length / pageSize) || 1;
+      if (currentPage < totalPages) {
+        currentPage++;
+        renderEggTableWithPaging();
+      }
+    });
+    function renderChart(pageData) {
+      const ctx = document.getElementById('eggChart').getContext('2d');
+      const labels = pageData.map(row => row.date);
+      const prices = pageData.map(row => row.price);
+      if (chart) chart.destroy();
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: '蛋價',
+            data: prices,
+            borderColor: '#2d5c8a',
+            backgroundColor: 'rgba(45,92,138,0.1)',
+            fill: true,
+            tension: 0.2
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: false } }
+        }
       });
     }
     document.getElementById('searchBtn').addEventListener('click', searchByDate);
     document.getElementById('resetBtn').addEventListener('click', loadEggPrices);
+
+    // 新增清空日期按鈕事件
+    document.getElementById('clearDateBtn').addEventListener('click', function() {
+      document.getElementById('startDate').value = '';
+      document.getElementById('endDate').value = '';
+      loadEggPrices();
+    });
+
     window.onload = loadEggPrices;
+
+    // 設定所有日期 input 最大值為今天
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('date').max = today;
+    document.getElementById('startDate').max = today;
+    document.getElementById('endDate').max = today;
+
+    // 防呆：若選到未來日期，自動修正為今日
+    ['date', 'startDate', 'endDate'].forEach(id => {
+      document.getElementById(id).addEventListener('change', function() {
+        if (this.value > today) this.value = today;
+      });
+    });
+
+    // 匯出 CSV 按鈕事件
+    document.getElementById('exportCsvBtn').onclick = function() {
+      let start = document.getElementById('startDate').value;
+      let end = document.getElementById('endDate').value;
+      // 自動交換日期順序
+      if (start && end && start > end) {
+        [start, end] = [end, start];
+      }
+      let url = '/export-csv';
+      if (start || end) {
+        url += `?startDate=${encodeURIComponent(start)}&endDate=${encodeURIComponent(end)}`;
+      }
+      window.location = url;
+    };
   </script>
 </body>
 </html>
